@@ -1,0 +1,148 @@
+data:text/html;charset=utf-8,
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tetris</title>
+<style>
+body { margin:0; background:#000; color:#fff; display:flex; justify-content:center; align-items:flex-start; height:100vh; font-family:sans-serif; }
+#game { margin-top:20px; }
+canvas { background:#111; display:block; margin-bottom:10px; }
+#next { margin-left:20px; }
+#score { margin-top:10px; text-align:center; font-size:16px; }
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="tetris" width="240" height="400"></canvas>
+<div id="score">Score: 0</div>
+</div>
+<div id="next">
+<canvas id="nextBlock" width="80" height="80"></canvas>
+<div>Next</div>
+</div>
+<script>
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+ctx.scale(20,20);
+
+const nextCanvas = document.getElementById('nextBlock');
+const nextCtx = nextCanvas.getContext('2d');
+nextCtx.scale(20,20);
+
+const tetrominoes = [
+  [[1,1,1],[0,1,0]],
+  [[0,2,2],[2,2,0]],
+  [[3,3,0],[0,3,3]],
+  [[4,4],[4,4]],
+  [[5,0,0],[5,5,5]],
+  [[0,0,6],[6,6,6]],
+  [[0,7,0],[7,7,7]]
+];
+
+let board = Array.from({length:20},()=>Array(12).fill(0));
+let score=0;
+
+function createPiece(){ return tetrominoes[Math.floor(Math.random()*7)]; }
+
+let current = {x:4,y:0,shape:createPiece()};
+let next = createPiece();
+
+function drawBoard(){
+  ctx.fillStyle='#111'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  board.forEach((row,y)=>{
+    row.forEach((value,x)=>{
+      if(value) ctx.fillStyle='hsl('+value*40+',80%,60%)',ctx.fillRect(x,y,1,1);
+    });
+  });
+}
+
+function drawPiece(p,ctx,offset){
+  p.forEach((row,dy)=>row.forEach((val,dx)=>{
+    if(val) ctx.fillStyle='hsl('+val*40+',80%,60%)',ctx.fillRect(dx+offset.x,dy+offset.y,1,1);
+  }));
+}
+
+function drawNext(){
+  nextCtx.fillStyle='#111'; nextCtx.fillRect(0,0,nextCanvas.width,nextCanvas.height);
+  drawPiece(next,nextCtx,{x:0,y:0});
+}
+
+function collide(){
+  for(let y=0;y<current.shape.length;y++){
+    for(let x=0;x<current.shape[y].length;x++){
+      if(current.shape[y][x] && (board[y+current.y] && board[y+current.y][x+current.x])!==0) return true;
+    }
+  }
+  return false;
+}
+
+function merge(){
+  current.shape.forEach((row,dy)=>row.forEach((val,dx)=>{
+    if(val) board[current.y+dy][current.x+dx]=val;
+  }));
+}
+
+function rotate(matrix){ return matrix[0].map((_,i)=>matrix.map(row=>row[i])).map(r=>r.reverse()); }
+
+function move(dir){ current.x+=dir; if(collide()) current.x-=dir; }
+
+function drop(){
+  current.y++;
+  if(collide()){
+    current.y--;
+    merge();
+    sweep();
+    reset();
+  }
+}
+
+function sweep(){
+  let lines = 0;
+  outer: for(let y=board.length-1;y>=0;y--){
+    for(let x=0;x<board[y].length;x++){ if(!board[y][x]) continue outer; }
+    board.splice(y,1); board.unshift(Array(12).fill(0)); lines++; y++;
+  }
+  score+=lines*100;
+  document.getElementById('score').innerText='Score: '+score;
+}
+
+function reset(){
+  current = {x:4,y:0,shape:next};
+  next = createPiece();
+  drawNext();
+  if(collide()){ board=Array.from({length:20},()=>Array(12).fill(0)); score=0; document.getElementById('score').innerText='Score: 0'; }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft') move(-1);
+  if(e.key==='ArrowRight') move(1);
+  if(e.key==='ArrowDown') drop();
+  if(e.key==='q') current.shape=rotate(current.shape);
+  if(e.key==='w') current.shape=rotate(rotate(rotate(current.shape)));
+});
+
+function loop(){
+  drop();
+  drawBoard();
+  drawPiece(current,ctx,{x:current.x,y:current.y});
+  drawGhost();
+  requestAnimationFrame(loop);
+}
+
+function drawGhost(){
+  let ghostY=current.y;
+  while(!collide()){ ghostY++; } ghostY--;
+  current.shape.forEach((row,dy)=>row.forEach((val,dx)=>{
+    if(val) ctx.fillStyle='rgba(255,255,255,0.2)',ctx.fillRect(current.x+dx,ghostY+dy,1,1);
+  }));
+}
+
+drawNext();
+loop();
+
+function completion(result){ console.log("Tetris loaded"); }
+completion(true);
+</script>
+</body>
+</html>
